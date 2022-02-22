@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import mockUser from './mockData.js/mockUser';
-import mockRepos from './mockData.js/mockRepos';
-import mockFollowers from './mockData.js/mockFollowers';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import mockUser from "./mockData.js/mockUser";
+import mockRepos from "./mockData.js/mockRepos";
+import mockFollowers from "./mockData.js/mockFollowers";
+import axios from "axios";
 
-const rootUrl = 'https://api.github.com';
+const rootUrl = "https://api.github.com";
 
 const GithubContext = React.createContext();
 //provider, consumer - GithubContext.Provider
@@ -13,12 +13,12 @@ const GithubProvider = ({ children }) => {
   const [githubUser, setGithubUser] = useState(mockUser);
   const [repos, setRepos] = useState(mockRepos);
   const [followers, setFollowers] = useState(mockFollowers);
-  // request loadingGif
+  // request
   const [requests, setRequests] = useState(0);
-
+  //loadingGif
   const [isLoading, setIsLoading] = useState(false);
   //error
-  const [error, setError] = useState({ show: false, msg: '' });
+  const [error, setError] = useState({ show: false, msg: "" });
 
   const searchGithubUser = async (user) => {
     toggleError();
@@ -31,17 +31,25 @@ const GithubProvider = ({ children }) => {
       setGithubUser(response.data);
       const { login, followers_url } = response.data;
 
-      //repos
-      axios(`${rootUrl}/users/${login}/repos?per_page=100`).then((response) =>
-        setRepos(response.data)
-      );
+      await Promise.allSettled([
+        axios(`${rootUrl}/users/${login}/repos?per_page=100`),
+        axios(`${followers_url}?per_page=100`),
+      ])
+        .then((results) => {
+          const [repos, followers] = results;
+          const status = "fulfilled";
 
-      //followers
-      axios(`${followers_url}?per_page=100`).then((response) =>
-        setFollowers(response.data)
-      );
+          if (repos.status === status) {
+            setRepos(repos.value.data);
+          }
+
+          if (followers.status === status) {
+            setFollowers(followers.value.data);
+          }
+        })
+        .catch((err) => console.log(err));
     } else {
-      toggleError(true, 'user not found');
+      toggleError(true, "user not found");
     }
     checkRequests();
     setIsLoading(false);
@@ -58,14 +66,14 @@ const GithubProvider = ({ children }) => {
         setRequests(remaining);
 
         if (remaining === 0) {
-          toggleError(true, 'sorry you have exceeded your hourly rate limit!');
+          toggleError(true, "sorry you have exceeded your hourly rate limit!");
         }
       })
       .catch((err) => console.log(err));
   };
 
   // error
-  function toggleError(show = false, msg = '') {
+  function toggleError(show = false, msg = "") {
     setError({ show, msg });
   }
 
